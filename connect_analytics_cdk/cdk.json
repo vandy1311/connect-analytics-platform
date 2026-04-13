@@ -1,0 +1,30 @@
+{
+  "app": "python3 connect_analytics_cdk/app.py",
+  "watch": {
+    "include": [
+      "connect_analytics_cdk/**",
+      "lambda_tools/**"
+    ],
+    "exclude": [
+      "**/__pycache__",
+      "**/.pytest_cache",
+      "tests/**"
+    ]
+  },
+  "context": {
+    "dev": {
+      "account": "123456789012",
+      "region": "us-east-1"
+    },
+    "staging": {
+      "account": "123456789012",
+      "region": "us-east-1"
+    },
+    "prod": {
+      "account": "123456789012",
+      "region": "us-east-1"
+    },
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:stackRelativeExports": true
+  }
+}

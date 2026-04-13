@@ -1,0 +1,193 @@
+digraph ConnectAnalyticsPlatform {
+    rankdir=TB;
+    fontname="Helvetica";
+    node [fontname="Helvetica", fontsize=11, style=filled, shape=box, penwidth=1.5];
+    edge [fontname="Helvetica", fontsize=9, color="#5f6b7a"];
+    compound=true;
+    newrank=true;
+    splines=ortho;
+
+    // ── Client Layer ──────────────────────────────────────
+    subgraph cluster_client {
+        label="Client Layer";
+        style=filled; fillcolor="#f7fbff"; color="#0972d3"; penwidth=2;
+        fontsize=12; fontcolor="#0972d3"; labeljust=l;
+
+        nlq [label="NLQ Interface\n(Natural Language Query)", fillcolor="#e8f4fd", color="#0972d3"];
+    }
+
+    // ── Auth Layer ────────────────────────────────────────
+    subgraph cluster_auth {
+        label="Auth Layer";
+        style=filled; fillcolor="#fef7f7"; color="#d91515"; penwidth=2;
+        fontsize=12; fontcolor="#d91515"; labeljust=l;
+
+        auth [label="Authentication\n& RBAC", fillcolor="#fde8e8", color="#d91515"];
+    }
+
+    // ── Agent Layer ───────────────────────────────────────
+    subgraph cluster_agents {
+        label="Agent Layer — Amazon Bedrock AgentCore";
+        style=filled; fillcolor="#f2f8fd"; color="#0972d3"; penwidth=2;
+        fontsize=12; fontcolor="#0972d3"; labeljust=l;
+
+        gateway [label="AgentCore Gateway\n(shared · $0.005/1K calls)", fillcolor="#d4e8f7", color="#033160", shape=hexagon];
+
+        subgraph cluster_agent_cards {
+            label=""; style=invis;
+            rank=same;
+
+            supervisor [label="🟢 Supervisor Agent\nClaude Sonnet\n─────────────\nQueue Health · SLA\nUtilization · Abandonment", fillcolor="#f0faf0", color="#037f0c"];
+            quality [label="🟠 Quality Agent\nClaude Sonnet\n─────────────\nSentiment · Coaching\nCompliance", fillcolor="#fff8f0", color="#eb5f07"];
+            wfm [label="🔵 WFM Agent\nNova Lite (40x cheaper)\n─────────────\nForecasts · Burnout\nSchedule Optimization", fillcolor="#e8f4fd", color="#0972d3"];
+        }
+    }
+
+    // ── Tool Layer ────────────────────────────────────────
+    subgraph cluster_tools {
+        label="Tool Layer — Lambda Container Images → ECR";
+        style=filled; fillcolor="#fafafa"; color="#5f6b7a"; penwidth=2;
+        fontsize=12; fontcolor="#5f6b7a"; labeljust=l;
+
+        subgraph cluster_sup_tools {
+            label="Supervisor Tools"; style=filled; fillcolor="#f0faf0"; color="#037f0c"; fontsize=10;
+            t1 [label="get_queue_health", fillcolor="white", color="#037f0c", shape=component];
+            t2 [label="get_abandonment\n_analysis", fillcolor="white", color="#037f0c", shape=component];
+            t3 [label="get_agent\n_utilization", fillcolor="white", color="#037f0c", shape=component];
+            t4 [label="trigger_sla\n_alert", fillcolor="white", color="#037f0c", shape=component];
+        }
+
+        subgraph cluster_qual_tools {
+            label="Quality Tools"; style=filled; fillcolor="#fff8f0"; color="#eb5f07"; fontsize=10;
+            t5 [label="get_sentiment\n_trends", fillcolor="white", color="#eb5f07", shape=component];
+            t6 [label="get_coaching\n_recommendations", fillcolor="white", color="#eb5f07", shape=component];
+            t7 [label="get_compliance\n_violations", fillcolor="white", color="#eb5f07", shape=component];
+        }
+
+        subgraph cluster_wfm_tools {
+            label="WFM Tools"; style=filled; fillcolor="#e8f4fd"; color="#0972d3"; fontsize=10;
+            t8 [label="get_staffing\n_forecast", fillcolor="white", color="#0972d3", shape=component];
+            t9 [label="get_burnout\n_signals", fillcolor="white", color="#0972d3", shape=component];
+        }
+    }
+
+    // ── Query Layer ───────────────────────────────────────
+    subgraph cluster_query {
+        label="Query Layer";
+        style=filled; fillcolor="#f5fdf6"; color="#037f0c"; penwidth=2;
+        fontsize=12; fontcolor="#037f0c"; labeljust=l;
+
+        athena [label="Amazon Athena\nWorkgroup: connect-analytics\nTimeout: 30s", fillcolor="#e0f5e3", color="#037f0c", shape=cylinder];
+    }
+
+    // ── Data Layer ────────────────────────────────────────
+    subgraph cluster_data {
+        label="Data Layer — S3 + Glue Data Catalog";
+        style=filled; fillcolor="#f5fdf6"; color="#037f0c"; penwidth=2;
+        fontsize=12; fontcolor="#037f0c"; labeljust=l;
+
+        glue [label="Glue Data Catalog\n─────────────\nconnect_ctr\nconnect_agent_events\nconnect_contact_lens", fillcolor="#e0f5e3", color="#037f0c"];
+
+        subgraph cluster_s3 {
+            label="s3://connect-analytics-demo/"; style=filled; fillcolor="white"; color="#037f0c"; fontsize=10;
+            ctr [label="ctr/\nParquet", fillcolor="#f0faf0", color="#037f0c", shape=folder];
+            ae [label="agent-events/\nParquet", fillcolor="#f0faf0", color="#037f0c", shape=folder];
+            cl [label="contact-lens/\nJSON", fillcolor="#f0faf0", color="#037f0c", shape=folder];
+        }
+    }
+
+    // ── Alert Pipeline ────────────────────────────────────
+    subgraph cluster_alerts {
+        label="Alert Pipeline";
+        style=filled; fillcolor="#fff8f0"; color="#eb5f07"; penwidth=2;
+        fontsize=12; fontcolor="#eb5f07"; labeljust=l;
+
+        eb [label="EventBridge\n5 alert types", fillcolor="#ffe8cc", color="#eb5f07", shape=diamond];
+        sns [label="SNS Topics\n(per alert type)", fillcolor="#ffe8cc", color="#eb5f07"];
+        slack [label="Slack\nWebhook", fillcolor="#ffe8cc", color="#eb5f07", shape=note];
+    }
+
+    // ── Voice ─────────────────────────────────────────────
+    subgraph cluster_voice {
+        label="Voice — Nova Sonic on Bedrock";
+        style=filled; fillcolor="#f2f0ff"; color="#6b47dc"; penwidth=2;
+        fontsize=12; fontcolor="#6b47dc"; labeljust=l;
+
+        sonic [label="Nova Sonic\nSpeech-to-Speech\nLow Latency (<3s)", fillcolor="#e8e0ff", color="#6b47dc", shape=octagon];
+    }
+
+    // ── CDK ───────────────────────────────────────────────
+    subgraph cluster_cdk {
+        label="Infrastructure — AWS CDK (Python)";
+        style=filled; fillcolor="#f4f4f4"; color="#414d5c"; penwidth=2;
+        fontsize=12; fontcolor="#414d5c"; labeljust=l;
+
+        cdk [label="cdk deploy\n3 params · ~8 min\n─────────────\nDataStack → AgentStack\n→ AlertStack → AuthStack", fillcolor="white", color="#414d5c", shape=house];
+    }
+
+    // ── Legend ──────────────────────────────────────────────
+    subgraph cluster_legend {
+        label="Legend";
+        style=filled; fillcolor="white"; color="#414d5c"; penwidth=2;
+        fontsize=12; fontcolor="#414d5c"; labeljust=l;
+
+        node [shape=plaintext, fillcolor="white", style=""];
+
+        legend [label=<
+            <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="4" CELLPADDING="4">
+                <TR><TD BGCOLOR="#f0faf0" BORDER="1" COLOR="#037f0c"><FONT COLOR="#037f0c"> ■ </FONT></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="10">Supervisor Agent (Queue Health · SLA · Utilization)</FONT></TD></TR>
+                <TR><TD BGCOLOR="#fff8f0" BORDER="1" COLOR="#eb5f07"><FONT COLOR="#eb5f07"> ■ </FONT></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="10">Quality Agent (Sentiment · Coaching · Compliance)</FONT></TD></TR>
+                <TR><TD BGCOLOR="#e8f4fd" BORDER="1" COLOR="#0972d3"><FONT COLOR="#0972d3"> ■ </FONT></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="10">WFM Agent (Forecasts · Burnout · Scheduling)</FONT></TD></TR>
+                <TR><TD BGCOLOR="#fde8e8" BORDER="1" COLOR="#d91515"><FONT COLOR="#d91515"> ■ </FONT></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="10">Auth Layer (Authentication · RBAC)</FONT></TD></TR>
+                <TR><TD BGCOLOR="#e8e0ff" BORDER="1" COLOR="#6b47dc"><FONT COLOR="#6b47dc"> ■ </FONT></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="10">Voice (Nova Sonic on Bedrock)</FONT></TD></TR>
+                <TR><TD BGCOLOR="#ffe8cc" BORDER="1" COLOR="#eb5f07"><FONT COLOR="#eb5f07"> ■ </FONT></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="10">Alert Pipeline (EventBridge → SNS → Slack)</FONT></TD></TR>
+                <TR><TD BGCOLOR="#f4f4f4" BORDER="1" COLOR="#414d5c"><FONT COLOR="#414d5c"> ■ </FONT></TD><TD ALIGN="LEFT"><FONT POINT-SIZE="10">Infrastructure (CDK · Lambda · ECR)</FONT></TD></TR>
+            </TABLE>
+        >];
+    }
+
+    // ── Edges ─────────────────────────────────────────────
+
+    // Client → Auth → Gateway
+    nlq -> auth [xlabel="query + token"];
+    auth -> gateway [xlabel="authenticated"];
+
+    // Gateway → Agents
+    gateway -> supervisor [color="#037f0c", penwidth=2];
+    gateway -> quality [color="#eb5f07", penwidth=2];
+    gateway -> wfm [color="#0972d3", penwidth=2];
+
+    // Gateway → Tools (via agents)
+    gateway -> t1 [lhead=cluster_sup_tools, color="#037f0c", style=dashed];
+    gateway -> t5 [lhead=cluster_qual_tools, color="#eb5f07", style=dashed];
+    gateway -> t8 [lhead=cluster_wfm_tools, color="#0972d3", style=dashed];
+
+    // Tools → Athena
+    t1 -> athena [color="#037f0c"];
+    t2 -> athena [color="#037f0c"];
+    t3 -> athena [color="#037f0c"];
+    t5 -> athena [color="#eb5f07"];
+    t6 -> athena [color="#eb5f07"];
+    t7 -> athena [color="#eb5f07"];
+    t8 -> athena [color="#0972d3"];
+    t9 -> athena [color="#0972d3"];
+
+    // Athena → Glue → S3
+    athena -> glue;
+    glue -> ctr;
+    glue -> ae;
+    glue -> cl;
+
+    // Alert tools → EventBridge
+    t4 -> eb [color="#eb5f07", penwidth=2, xlabel="SLA_BREACH"];
+    t7 -> eb [color="#eb5f07", style=dashed, xlabel="COMPLIANCE"];
+    t9 -> eb [color="#0972d3", style=dashed, xlabel="BURNOUT"];
+
+    // Alert pipeline
+    eb -> sns;
+    sns -> slack [xlabel="Block Kit + retry 3x"];
+
+    // Voice
+    gateway -> sonic [color="#6b47dc", style=dashed, xlabel="voice=true"];
+    sonic -> nlq [color="#6b47dc", style=dashed, xlabel="audio stream"];
+}
