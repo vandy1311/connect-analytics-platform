@@ -1,0 +1,46 @@
+Name,Section,Assignee,Due Date,Priority,Status,Description,Tags
+"Prerequisites: Enable Bedrock + AgentCore + model access",Pre-Build,Yunjie,2026-04-07,High,Not Started,"Enable Bedrock AgentCore access, Claude Sonnet + Nova Lite model access, AgentCore Gateway quota in AWS console",Infrastructure
+"Prerequisites: Docker Desktop + CDK + AWS CLI",Pre-Build,All,2026-04-07,High,Not Started,"Ensure Docker Desktop running, aws-cdk v2 installed (npm install -g aws-cdk), AWS CLI configured with deploy permissions",Infrastructure
+"Prerequisites: Slack webhook URL for alerts",Pre-Build,Vandana,2026-04-07,Medium,Not Started,"Create Slack workspace/channel, generate webhook URL for alert testing",Infrastructure
+"Clone repo and verify dev environment",Pre-Build,All,2026-04-07,High,Not Started,"git clone https://github.com/vandy1311/connect-analytics-platform.git — pip install -r requirements-dev.txt — pytest tests/ (88 tests pass)",Setup
+"Review synthetic data generator + run locally",Step 1: Data Foundation,Yunjie,2026-04-08,High,Complete,"Review scripts/generate_synthetic_data.py — run python scripts/generate_synthetic_data.py — verify output/ has CTR (Parquet), Agent Events (Parquet), Contact Lens (JSON)",Data
+"Review Glue table definitions",Step 1: Data Foundation,Yunjie,2026-04-08,Medium,Complete,"Review connect_analytics_cdk/glue_tables.py — verify schemas match design doc — partition projection configured",Data
+"Review data stack (S3 + Glue + Athena)",Step 1: Data Foundation,Yunjie,2026-04-08,Medium,Complete,"Review connect_analytics_cdk/stacks/data_stack.py — S3 bucket, Glue DB, Athena workgroup",Data
+"Upload synthetic data to S3",Step 1: Data Foundation,Yunjie,2026-04-08,High,Not Started,"Run synthetic data generator — upload output/ to s3://connect-analytics-demo/ with correct partition structure",Data
+"Validate Athena queries against synthetic data",Step 1: Data Foundation,Yunjie,2026-04-08,High,Not Started,"Run validation query from impl plan in Athena console — Billing queue should show ~12 min avg wait and ~14% abandonment",Data
+"Review shared utility modules",Step 2: Supervisor Agent,Vandana,2026-04-09,Medium,Complete,"Review lambda_tools/shared/ — athena_client.py, error_handler.py, circuit_breaker.py, alert_publisher.py",Code Review
+"Review get_queue_health tool",Step 2: Supervisor Agent,Vandana,2026-04-09,Medium,Complete,"Review lambda_tools/supervisor/get_queue_health.py — verify SQL, response structure, circuit breaker usage",Code Review
+"Review get_abandonment_analysis tool",Step 2: Supervisor Agent,Vandana,2026-04-09,Medium,Complete,"Review lambda_tools/supervisor/get_abandonment_analysis.py — two queries (aggregation + peak hour)",Code Review
+"Review get_agent_utilization tool",Step 2: Supervisor Agent,Vandana,2026-04-09,Medium,Complete,"Review lambda_tools/supervisor/get_agent_utilization.py — CTE query, occupancy clamping, status normalization",Code Review
+"Review trigger_sla_alert tool",Step 2: Supervisor Agent,Vandana,2026-04-09,Medium,Complete,"Review lambda_tools/supervisor/trigger_sla_alert.py — threshold lookup, EventBridge publish, severity calc",Code Review
+"Verify AgentCore Gateway API availability",Step 2: Supervisor Agent,Yunjie,2026-04-09,Critical,Not Started,"Test AgentCore Gateway creation via SDK — this is the #1 risk item. If API not available, need fallback plan",Infrastructure
+"Review Supervisor Agent CDK construct",Step 2: Supervisor Agent,Yunjie,2026-04-09,Medium,Complete,"Review connect_analytics_cdk/agents/supervisor_agent.py — gateway creation, agent config, tool schemas",Code Review
+"Review Slack formatter Lambda",Step 3: Alert Pipeline,Brigette,2026-04-10,Medium,Complete,"Review lambda_tools/alerts/slack_formatter/handler.py — Block Kit formatting, retry logic, channel routing",Code Review
+"Review alert stack CDK",Step 3: Alert Pipeline,Brigette,2026-04-10,Medium,Complete,"Review connect_analytics_cdk/stacks/alert_stack.py — 5 EventBridge rules, 5 SNS topics, Slack Lambda",Code Review
+"Test Slack webhook integration end-to-end",Step 3: Alert Pipeline,Vandana,2026-04-10,High,Not Started,"Configure SLACK_WEBHOOK_URL — trigger a test SLA_BREACH event — verify Slack message appears in channel",Integration Test
+"Review get_sentiment_trends tool",Step 4: Quality + WFM,Brigette,2026-04-11,Medium,Complete,"Review lambda_tools/quality/get_sentiment_trends.py — sentiment aggregation, matplotlib chart generation",Code Review
+"Review get_coaching_recommendations tool",Step 4: Quality + WFM,Brigette,2026-04-11,Medium,Complete,"Review lambda_tools/quality/get_coaching_recommendations.py — threshold filtering, excerpt fetching, suggestion generation",Code Review
+"Review get_compliance_violations tool",Step 4: Quality + WFM,Brigette,2026-04-11,Medium,Complete,"Review lambda_tools/quality/get_compliance_violations.py — flag parsing, high-severity alert publishing",Code Review
+"Review Quality Agent CDK construct",Step 4: Quality + WFM,Brigette,2026-04-11,Medium,Complete,"Review connect_analytics_cdk/agents/quality_agent.py — Claude Sonnet, 3 tools, shared gateway reference",Code Review
+"Review get_staffing_forecast tool",Step 4: Quality + WFM,Yunjie,2026-04-11,Medium,Complete,"Review lambda_tools/wfm/get_staffing_forecast.py — volume patterns, confidence intervals, area chart",Code Review
+"Review get_burnout_signals tool",Step 4: Quality + WFM,Yunjie,2026-04-11,Medium,Complete,"Review lambda_tools/wfm/get_burnout_signals.py — burnout score formula, trend detection, alert publishing",Code Review
+"Review WFM Agent CDK construct",Step 4: Quality + WFM,Yunjie,2026-04-11,Medium,Complete,"Review connect_analytics_cdk/agents/wfm_agent.py — Nova Lite, 2 tools, shared gateway reference",Code Review
+"Review Nova Sonic voice module",Step 5: Voice,Brigette,2026-04-12,Medium,Complete,"Review lambda_tools/shared/voice_client.py — Bedrock InvokeModel, graceful fallback, latency warning",Code Review
+"Test Nova Sonic voice synthesis",Step 5: Voice,Brigette,2026-04-12,Medium,Not Started,"Test synthesize_speech() with a sample agent response — verify audio bytes returned — check latency < 3s",Integration Test
+"Review auth middleware",Step 6: Auth,Vandana,2026-04-12,Medium,Complete,"Review lambda_tools/shared/auth.py — token validation, RBAC enforcement, audit logging",Code Review
+"Review auth stack CDK",Step 6: Auth,Vandana,2026-04-12,Medium,Complete,"Review connect_analytics_cdk/stacks/auth_stack.py — API key config, role mapping, demo tokens",Code Review
+"Review agent stack CDK",Step 7: CDK Assembly,Yunjie,2026-04-13,High,Complete,"Review connect_analytics_cdk/stacks/agent_stack.py — DockerImageFunction, gateway, 3 agents, IAM policies",Code Review
+"Review CDK app entry point + wiring",Step 7: CDK Assembly,Yunjie,2026-04-13,High,Complete,"Review connect_analytics_cdk/app.py — stack dependencies, cross-stack refs, CfnOutputs",Code Review
+"Run cdk synth and fix any errors",Step 7: CDK Assembly,Yunjie,2026-04-13,Critical,Not Started,"cd connect_analytics_cdk && cdk synth — verify CloudFormation template generated without errors",Infrastructure
+"Run cdk deploy to Isengard account",Step 7: CDK Assembly,Yunjie,2026-04-13,Critical,Not Started,"cdk deploy --all — target ~8 min deploy — verify all resources created",Infrastructure
+"Demo dry-run: Query 1 — queue health",Step 8: Demo Validation,Vandana,2026-04-14,Critical,Not Started,"'Show me queue health right now' → Billing queue 12 min wait, SLA breach, 14% abandonment",Demo
+"Demo dry-run: Query 2 — abandonment spike",Step 8: Demo Validation,Vandana,2026-04-14,Critical,Not Started,"'Why did abandonment spike at 2pm?' → 2 agents on break, 96% occupancy",Demo
+"Demo dry-run: Query 3 — live Slack alert",Step 8: Demo Validation,Vandana,2026-04-14,Critical,Not Started,"Verify SLA breach alert fires in Slack during queue health query",Demo
+"Demo dry-run: Query 4 — coaching recommendations",Step 8: Demo Validation,Brigette,2026-04-14,Critical,Not Started,"'Which agents need coaching this week?' → Agent-017: 4 negative calls, interruption pattern",Demo
+"Demo dry-run: Query 5 — worst call transcript",Step 8: Demo Validation,Brigette,2026-04-14,Critical,Not Started,"'Show me the worst call' → Transcript + sentiment chart",Demo
+"Demo dry-run: Query 6 — staffing forecast",Step 8: Demo Validation,Yunjie,2026-04-14,Critical,Not Started,"'Forecast staffing for next Monday' → 340 contacts 10am-2pm, need 22, have 18 + chart",Demo
+"Demo dry-run: Query 7 — burnout signals",Step 8: Demo Validation,Yunjie,2026-04-14,Critical,Not Started,"'Any agents showing burnout signals?' → Agent-023/031: >92% occupancy for 8 days",Demo
+"Demo dry-run: Query 8 — live cdk deploy",Step 8: Demo Validation,Brigette,2026-04-14,Critical,Not Started,"Live cdk deploy during demo — stack deploys in ~8 min",Demo
+"Fix any failing demo queries",Step 8: Demo Validation,All,2026-04-14,Critical,Not Started,"If any demo response doesn't match script — fix synthetic data patterns first, then agent logic",Demo
+"Final rehearsal — full 5-min demo run",Step 8: Demo Validation,All,2026-04-15,Critical,Not Started,"Complete end-to-end demo with all 3 speakers — time it — verify all 8 queries + Slack alert",Demo
+"Submit hackathon entry",Submission,Brigette,2026-04-15,Critical,Not Started,"Submit final hackathon deliverables by deadline",Admin

@@ -40,4 +40,8 @@ node_modules/
 
 # Docker
 *.log
+
+# Secrets
+demo_ui/.env
 aidlc-workflows/
+test_voice.mp3
