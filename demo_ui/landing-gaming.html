@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GamePulse Analytics Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0a1a; --surface: #1a1730; --surface-raised: #252240; --border: #2e2a4a;
+    --text-primary: #f1f0ff; --text-secondary: #9b97c0; --text-muted: #6b67a0;
+    --accent: #a855f7; --accent-light: rgba(168,85,247,0.12);
+    --green: #4ade80; --green-light: rgba(74,222,128,0.1); --green-border: rgba(74,222,128,0.25);
+    --orange: #fb923c; --orange-light: rgba(251,146,60,0.1); --orange-border: rgba(251,146,60,0.25);
+    --cyan: #22d3ee; --cyan-light: rgba(34,211,238,0.1); --cyan-border: rgba(34,211,238,0.25);
+    --red: #f87171;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.35);
+    --shadow-lg: 0 12px 24px rgba(0,0,0,0.4);
+    --radius: 12px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',system-ui,sans-serif; background:var(--bg); color:var(--text-primary); -webkit-font-smoothing:antialiased; }
+  a { text-decoration:none; color:inherit; }
+
+  nav { position:sticky; top:0; z-index:50; background:rgba(12,10,26,0.88); backdrop-filter:blur(12px);
+        border-bottom:1px solid var(--border); padding:0 48px; height:56px; display:flex; align-items:center; justify-content:space-between; }
+  .nav-brand { font-weight:700; font-size:0.95rem; letter-spacing:-0.02em; }
+  .nav-brand span { color:var(--accent); }
+  .nav-links { display:flex; align-items:center; gap:32px; }
+  .nav-links a { font-size:0.85rem; font-weight:500; color:var(--text-secondary); transition:color 0.2s; }
+  .nav-links a:hover { color:var(--text-primary); }
+  .btn-primary { background:var(--accent); color:#fff; padding:8px 20px; border-radius:8px; font-size:0.85rem; font-weight:600; transition:all 0.2s; }
+  .btn-primary:hover { background:#9333ea; box-shadow:0 4px 16px rgba(168,85,247,0.35); }
+
+  .hero { max-width:720px; margin:0 auto; text-align:center; padding:96px 24px 64px; position:relative; }
+  .hero::before { content:''; position:absolute; top:-100px; left:50%; transform:translateX(-50%);
+                  width:600px; height:600px; border-radius:50%; opacity:0.06;
+                  background:radial-gradient(circle, var(--accent), transparent 70%); pointer-events:none; }
+  .hero .badge { display:inline-block; background:var(--accent-light); color:var(--accent); font-size:0.75rem;
+                 font-weight:600; padding:4px 12px; border-radius:100px; margin-bottom:20px; border:1px solid rgba(168,85,247,0.2); }
+  .hero h1 { font-size:2.8rem; font-weight:800; line-height:1.15; letter-spacing:-0.03em; position:relative; }
+  .hero p { font-size:1.05rem; color:var(--text-secondary); line-height:1.7; margin:16px auto 32px; max-width:540px; }
+  .hero-actions { display:flex; gap:12px; justify-content:center; }
+  .btn-secondary { border:1px solid var(--border); color:var(--text-primary); padding:8px 20px; border-radius:8px;
+                   font-size:0.85rem; font-weight:600; transition:all 0.2s; background:var(--surface); }
+  .btn-secondary:hover { border-color:var(--text-muted); }
+
+  .metrics-bar { display:flex; justify-content:center; gap:1px; background:var(--border); max-width:800px; margin:0 auto 64px;
+                 border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-md); }
+  .metric-item { flex:1; background:var(--surface); padding:24px 16px; text-align:center; }
+  .metric-item .value { font-size:1.6rem; font-weight:800; letter-spacing:-0.02em; }
+  .metric-item .label { font-size:0.72rem; color:var(--text-muted); margin-top:4px; text-transform:uppercase; letter-spacing:0.06em; font-weight:500; }
+
+  .section { max-width:1080px; margin:0 auto; padding:64px 24px; }
+  .section-header { text-align:center; margin-bottom:40px; }
+  .section-header h2 { font-size:1.8rem; font-weight:700; letter-spacing:-0.02em; }
+  .section-header h2 span { color:var(--accent); }
+  .section-header p { color:var(--text-secondary); font-size:0.95rem; margin-top:8px; }
+
+  .card-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+          padding:28px 24px; transition:all 0.25s; }
+  .card:hover { box-shadow:var(--shadow-lg); transform:translateY(-2px); border-color:var(--text-muted); }
+  .card .card-icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+                     font-size:1.1rem; font-weight:700; margin-bottom:16px; }
+  .card.liveops .card-icon { background:var(--green-light); color:var(--green); border:1px solid var(--green-border); }
+  .card.player .card-icon { background:var(--orange-light); color:var(--orange); border:1px solid var(--orange-border); }
+  .card.economy .card-icon { background:var(--cyan-light); color:var(--cyan); border:1px solid var(--cyan-border); }
+  .card h3 { font-size:1rem; font-weight:700; margin-bottom:4px; }
+  .card .card-model { font-size:0.75rem; color:var(--text-muted); margin-bottom:12px; }
+  .card p { font-size:0.88rem; color:var(--text-secondary); line-height:1.6; margin-bottom:12px; }
+  .card ul { list-style:none; }
+  .card ul li { font-size:0.82rem; color:var(--text-secondary); padding:3px 0; padding-left:16px; position:relative; }
+  .card ul li::before { content:''; position:absolute; left:0; top:10px; width:6px; height:6px; border-radius:50%; }
+  .card.liveops ul li::before { background:var(--green); }
+  .card.player ul li::before { background:var(--orange); }
+  .card.economy ul li::before { background:var(--cyan); }
+
+  .compare-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .compare-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:28px 24px; }
+  .compare-card.before { border-top:3px solid var(--red); }
+  .compare-card.after { border-top:3px solid var(--green); }
+  .compare-card h3 { font-size:1rem; font-weight:700; margin-bottom:16px; }
+  .compare-card.before h3 { color:var(--red); }
+  .compare-card.after h3 { color:var(--green); }
+  .compare-row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.85rem; }
+  .compare-row .label { color:var(--text-secondary); }
+  .compare-row .val { font-weight:600; }
+
+  .team-grid { display:flex; justify-content:center; gap:40px; }
+  .team-member { text-align:center; }
+  .team-avatar { width:64px; height:64px; border-radius:50%; background:var(--accent-light); color:var(--accent);
+                 display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:700;
+                 margin:0 auto 12px; border:2px solid var(--border); }
+  .team-member .name { font-weight:700; font-size:0.9rem; }
+  .team-member .role { font-size:0.78rem; color:var(--text-muted); }
+
+  .final-cta { text-align:center; padding:80px 24px; background:var(--surface); border-top:1px solid var(--border); }
+  .final-cta h2 { font-size:1.6rem; font-weight:700; margin-bottom:8px; }
+  .final-cta p { color:var(--text-secondary); margin-bottom:24px; font-size:0.95rem; }
+  footer { text-align:center; padding:24px; font-size:0.75rem; color:var(--text-muted); }
+
+  .vertical-switcher { display:flex; gap:8px; }
+  .vertical-switcher a { padding:6px 14px; border-radius:6px; font-size:0.8rem; font-weight:600; border:1px solid var(--border); color:var(--text-secondary); transition:all 0.2s; }
+  .vertical-switcher a:hover { border-color:var(--text-muted); color:var(--text-primary); }
+  .vertical-switcher a.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+  @media (max-width:768px) { .hero h1{font-size:2rem;} .card-grid,.compare-grid{grid-template-columns:1fr;} .metrics-bar{flex-direction:column;} .team-grid{flex-direction:column;align-items:center;} }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand"><span>GamePulse</span> Analytics</div>
+  <div class="nav-links">
+    <div class="vertical-switcher">
+      <a href="landing.html">Contact Center</a>
+      <a href="landing-gaming.html" class="active">Gaming</a>
+    </div>
+    <a href="#agents">Agents</a>
+    <a href="#compare">Compare</a>
+    <a href="#team">Team</a>
+    <a href="#" class="btn-primary">Open Demo</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="badge">Bedrock AgentCore &middot; Built for Gaming</div>
+  <h1>Game analytics, answered in real time</h1>
+  <p>Three AI agents that monitor your live game, analyze player behavior, and balance your economy — all through natural language. Same architecture, different vertical.</p>
+  <div class="hero-actions">
+    <a href="#" class="btn-primary">Launch Demo</a>
+    <a href="#agents" class="btn-secondary">How it works</a>
+  </div>
+</div>
+
+<div class="metrics-bar">
+  <div class="metric-item"><div class="value">2s</div><div class="label">Query response</div></div>
+  <div class="metric-item"><div class="value">4M+</div><div class="label">Players analyzed</div></div>
+  <div class="metric-item"><div class="value">100%</div><div class="label">Session coverage</div></div>
+  <div class="metric-item"><div class="value">8 min</div><div class="label">Deploy time</div></div>
+  <div class="metric-item"><div class="value">&lt;30s</div><div class="label">Incident alerts</div></div>
+</div>
+
+<div class="section" id="agents">
+  <div class="section-header">
+    <h2>Three agents for <span>every game team</span></h2>
+    <p>Same AgentCore architecture as Connect Analytics — different data, different prompts, same power</p>
+  </div>
+  <div class="card-grid">
+    <div class="card liveops">
+      <div class="card-icon">L</div>
+      <h3>Live Ops Agent</h3>
+      <div class="card-model">Claude Sonnet 4</div>
+      <p>Real-time game health for producers managing live services.</p>
+      <ul>
+        <li>Server health and player concurrency</li>
+        <li>Matchmaking queue times and balance</li>
+        <li>Crash rate monitoring and root cause</li>
+        <li>Discord alerts on incidents</li>
+      </ul>
+    </div>
+    <div class="card player">
+      <div class="card-icon">P</div>
+      <h3>Player Experience Agent</h3>
+      <div class="card-model">Claude Sonnet 4</div>
+      <p>Every player interaction analyzed. Churn predicted before it happens.</p>
+      <ul>
+        <li>Chat and review sentiment analysis</li>
+        <li>Toxicity detection and moderation</li>
+        <li>Churn prediction with risk scores</li>
+        <li>NPS trends and player satisfaction</li>
+      </ul>
+    </div>
+    <div class="card economy">
+      <div class="card-icon">E</div>
+      <h3>Economy Agent</h3>
+      <div class="card-model">Nova Lite 2</div>
+      <p>Balance your game economy with data, not guesswork.</p>
+      <ul>
+        <li>Monetization forecasts and ARPU trends</li>
+        <li>Loot drop rate analysis and balance</li>
+        <li>A/B test result interpretation</li>
+        <li>Currency inflation detection</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="compare" style="background:var(--surface); border-radius:24px; margin:0 40px; padding:64px 48px;">
+  <div class="section-header">
+    <h2>Same architecture, <span>different vertical</span></h2>
+    <p>What changes between Contact Center and Gaming</p>
+  </div>
+  <div class="compare-grid">
+    <div class="compare-card before">
+      <h3 style="color:var(--accent);">Contact Center</h3>
+      <div class="compare-row"><span class="label">Agent 1</span><span class="val">Supervisor</span></div>
+      <div class="compare-row"><span class="label">Agent 2</span><span class="val">Quality</span></div>
+      <div class="compare-row"><span class="label">Agent 3</span><span class="val">WFM</span></div>
+      <div class="compare-row"><span class="label">Data</span><span class="val">CTR, Agent Events, Contact Lens</span></div>
+      <div class="compare-row"><span class="label">Alerts</span><span class="val">Slack</span></div>
+      <div class="compare-row"><span class="label">Knowledge Base</span><span class="val">SOPs, compliance docs</span></div>
+    </div>
+    <div class="compare-card after">
+      <h3>Gaming</h3>
+      <div class="compare-row"><span class="label">Agent 1</span><span class="val">Live Ops</span></div>
+      <div class="compare-row"><span class="label">Agent 2</span><span class="val">Player Experience</span></div>
+      <div class="compare-row"><span class="label">Agent 3</span><span class="val">Economy</span></div>
+      <div class="compare-row"><span class="label">Data</span><span class="val">Sessions, Player Events, Chat</span></div>
+      <div class="compare-row"><span class="label">Alerts</span><span class="val">Discord</span></div>
+      <div class="compare-row"><span class="label">Knowledge Base</span><span class="val">Game design docs, patch notes</span></div>
+    </div>
+  </div>
+  <div style="text-align:center; margin-top:32px;">
+    <p style="color:var(--text-muted); font-size:0.85rem;">Infrastructure unchanged: AgentCore + S3 + Glue + Athena + EventBridge + CDK</p>
+  </div>
+</div>
+
+<div class="section" id="team">
+  <div class="section-header">
+    <h2>Built by <span>Team FIFA</span></h2>
+    <p>Proving the architecture works across verticals</p>
+  </div>
+  <div class="team-grid">
+    <div class="team-member"><div class="team-avatar">BB</div><div class="name">Brigette Bucke</div><div class="role">Quality &amp; Demo Lead</div></div>
+    <div class="team-member"><div class="team-avatar">YC</div><div class="name">Yunjie Chen</div><div class="role">Architecture &amp; Infrastructure</div></div>
+    <div class="team-member"><div class="team-avatar">VT</div><div class="name">Vandana Tewani</div><div class="role">Alerts &amp; Integration</div></div>
+  </div>
+</div>
+
+<div class="final-cta">
+  <h2>One architecture. Any vertical.</h2>
+  <p>Contact center today. Gaming tomorrow. Healthcare next. Same agents, same deploy, different data.</p>
+  <a href="landing.html" class="btn-secondary" style="margin-right:12px;">See Contact Center version</a>
+  <a href="#" class="btn-primary">Open Gaming Demo</a>
+</div>
+
+<footer>Built with AI-DLC methodology &middot; Powered by Amazon Bedrock AgentCore &middot; AWS CDK</footer>
+
+</body>
+</html>

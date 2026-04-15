@@ -9,8 +9,9 @@ import json
 import os
 import time
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import quote as url_quote
 
 import streamlit as st
 
@@ -82,72 +83,77 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
-    /* ── Global ── */
-    .stApp { background: linear-gradient(160deg, #0a1628 0%, #1a2744 50%, #0d1f3c 100%); }
-    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+    /* Global */
+    .stApp { background: #0f172a; }
+    .stTabs [data-baseweb="tab-list"] { gap: 4px; }
     .stTabs [data-baseweb="tab"] {
-        border-radius: 8px 8px 0 0; padding: 10px 24px;
-        font-weight: 600; font-size: 0.95rem;
+        border-radius: 8px 8px 0 0; padding: 10px 20px;
+        font-weight: 600; font-size: 0.85rem;
     }
 
-    /* ── Agent headers ── */
-    .supervisor-header { color: #2ecc71; border-left: 4px solid #2ecc71; padding-left: 14px; font-size: 1.5rem; }
-    .quality-header { color: #FF9900; border-left: 4px solid #FF9900; padding-left: 14px; font-size: 1.5rem; }
-    .wfm-header { color: #3498db; border-left: 4px solid #3498db; padding-left: 14px; font-size: 1.5rem; }
+    /* Agent headers */
+    .supervisor-header { color: #34d399; border-left: 3px solid #34d399; padding-left: 14px; font-size: 1.3rem; }
+    .quality-header { color: #fb923c; border-left: 3px solid #fb923c; padding-left: 14px; font-size: 1.3rem; }
+    .wfm-header { color: #60a5fa; border-left: 3px solid #60a5fa; padding-left: 14px; font-size: 1.3rem; }
 
-    /* ── Chat bubbles ── */
+    /* Chat bubbles */
     .user-msg {
-        background: linear-gradient(135deg, #1e3a5f, #1a2f4a); border-radius: 16px; padding: 14px 18px;
-        margin: 10px 0; border-left: 4px solid #3498db; color: #e8e8e8;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        background: #1e293b; border-radius: 12px; padding: 14px 18px;
+        margin: 10px 0; border-left: 3px solid #3b82f6; color: #f1f5f9;
     }
     .agent-msg {
-        background: linear-gradient(135deg, #162d1f, #1a3328); border-radius: 16px; padding: 14px 18px;
-        margin: 10px 0; border-left: 4px solid #2ecc71; color: #e8e8e8;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        background: #1e293b; border-radius: 12px; padding: 14px 18px;
+        margin: 10px 0; border-left: 3px solid #34d399; color: #f1f5f9;
     }
 
-    /* ── Slack alerts in sidebar ── */
+    /* Slack alerts in sidebar */
     .slack-alert {
-        background: linear-gradient(135deg, #1e2a3a, #1a2540); border: 1px solid #2a3a50;
-        border-radius: 10px; padding: 12px 14px; margin: 8px 0; font-size: 0.85rem;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.2); color: #e8e8e8;
+        background: #1e293b; border: 1px solid #334155;
+        border-radius: 10px; padding: 12px 14px; margin: 8px 0; font-size: 0.85rem; color: #f1f5f9;
     }
-    .slack-alert .alert-type { font-weight: 700; font-size: 0.95rem; }
-    .slack-alert.sla { border-left: 4px solid #e74c3c; }
-    .slack-alert.compliance { border-left: 4px solid #FF9900; }
-    .slack-alert.burnout { border-left: 4px solid #3498db; }
+    .slack-alert .alert-type { font-weight: 700; font-size: 0.9rem; }
+    .slack-alert.sla { border-left: 3px solid #f87171; }
+    .slack-alert.compliance { border-left: 3px solid #fb923c; }
+    .slack-alert.burnout { border-left: 3px solid #60a5fa; }
 
-    /* ── Hero banner ── */
-    .hero-banner {
-        background: linear-gradient(135deg, #FF9900 0%, #e88600 50%, #cc7700 100%);
-        border-radius: 16px; padding: 28px 32px; margin-bottom: 24px; text-align: center;
-        box-shadow: 0 4px 20px rgba(255,153,0,0.3);
-    }
-    .hero-banner h1 { color: #0a1628; font-size: 2.2rem; margin: 0; font-weight: 800; }
-    .hero-banner p { color: #1a2744; font-size: 1rem; margin: 4px 0 0 0; font-weight: 500; }
-
-    /* ── Agent cards on Architecture tab ── */
+    /* Agent cards */
     .agent-card {
         border-radius: 12px; padding: 18px; margin: 8px 0;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        background: #1e293b; border: 1px solid #334155;
     }
-    .agent-card.sup { background: linear-gradient(135deg, #0d2818, #1a3d28); border: 1px solid #2ecc71; }
-    .agent-card.qual { background: linear-gradient(135deg, #2d1a00, #3d2800); border: 1px solid #FF9900; }
-    .agent-card.wfm { background: linear-gradient(135deg, #0d1a2d, #1a2d44); border: 1px solid #3498db; }
+    .agent-card.sup { border-left: 3px solid #34d399; }
+    .agent-card.qual { border-left: 3px solid #fb923c; }
+    .agent-card.wfm { border-left: 3px solid #60a5fa; }
 
-    /* ── Sidebar styling ── */
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0d1a2d 0%, #131a2e 100%);
-    }
+    /* Sidebar */
+    section[data-testid="stSidebar"] { background: #0f172a; }
 
-    /* ── Metric cards ── */
+    /* Metrics */
     [data-testid="stMetric"] {
-        background: linear-gradient(135deg, #1a2744, #1e3050);
-        border: 1px solid #2a3a55; border-radius: 12px; padding: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 12px;
     }
-    [data-testid="stMetricValue"] { color: #FF9900; font-weight: 700; }
+    [data-testid="stMetricValue"] { color: #3b82f6; font-weight: 700; }
+
+    /* Prompt buttons */
+    .stButton > button {
+        background: #1e293b !important;
+        border: 1px solid #334155 !important;
+        border-radius: 12px !important;
+        padding: 16px !important;
+        min-height: 80px !important;
+        font-size: 0.88rem !important;
+        text-align: left !important;
+        white-space: pre-line !important;
+        line-height: 1.5 !important;
+        transition: all 0.2s ease !important;
+        color: #f1f5f9 !important;
+    }
+    .stButton > button:hover {
+        background: #273548 !important;
+        border-color: #64748b !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -207,57 +213,38 @@ with st.sidebar:
 # Main content — Agent tabs
 # ---------------------------------------------------------------------------
 st.markdown("""
-<div style="position:relative; overflow:hidden; border-radius:16px; margin-bottom:24px;
-            background: linear-gradient(135deg, #FF9900 0%, #e88600 40%, #232f3e 100%);
-            padding: 40px 32px; text-align:center;
-            box-shadow: 0 4px 30px rgba(255,153,0,0.4);">
-    <!-- Animated floating circles -->
-    <style>
-        @keyframes float1 { 0%,100% { transform: translateY(0px) translateX(0px); } 50% { transform: translateY(-20px) translateX(10px); } }
-        @keyframes float2 { 0%,100% { transform: translateY(0px) translateX(0px); } 50% { transform: translateY(-15px) translateX(-15px); } }
-        @keyframes float3 { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-25px); } }
-        @keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
-        @keyframes slideIn { 0% { opacity:0; transform:translateY(20px); } 100% { opacity:1; transform:translateY(0); } }
-        .hero-circle {
-            position:absolute; border-radius:50%; opacity:0.15;
-            background: radial-gradient(circle, #fff 0%, transparent 70%);
-        }
-        .hero-title { animation: slideIn 0.8s ease-out; }
-        .hero-sub { animation: slideIn 1s ease-out 0.2s both; }
-        .hero-badges { animation: slideIn 1.2s ease-out 0.4s both; }
-        .hero-badge {
-            display:inline-block; background:rgba(0,0,0,0.3); color:#FF9900;
-            padding:6px 14px; border-radius:20px; margin:4px; font-size:0.8rem;
-            font-weight:600; border:1px solid rgba(255,153,0,0.3);
-        }
-    </style>
-    <div class="hero-circle" style="width:120px;height:120px;top:-30px;left:10%;animation:float1 6s ease-in-out infinite;"></div>
-    <div class="hero-circle" style="width:80px;height:80px;top:20px;right:15%;animation:float2 8s ease-in-out infinite;"></div>
-    <div class="hero-circle" style="width:60px;height:60px;bottom:-10px;left:40%;animation:float3 5s ease-in-out infinite;"></div>
-    <div class="hero-circle" style="width:100px;height:100px;bottom:10px;right:5%;animation:float1 7s ease-in-out infinite;"></div>
-    <div class="hero-title" style="position:relative;">
-        <span style="font-size:3rem;">🎧</span>
-        <h1 style="color:#0a1628; font-size:2.4rem; margin:8px 0 0 0; font-weight:800; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            Connect Analytics Platform
-        </h1>
+<div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:32px; margin-bottom:20px; text-align:center;">
+    <div style="display:inline-block; background:rgba(59,130,246,0.12); color:#3b82f6; font-size:0.75rem;
+                font-weight:600; padding:4px 12px; border-radius:100px; margin-bottom:16px; border:1px solid rgba(59,130,246,0.2);">
+        Bedrock AgentCore &middot; Serverless
     </div>
-    <p class="hero-sub" style="color:#1a2744; font-size:1.1rem; margin:8px 0 16px 0; font-weight:500;">
-        Three AI agents that turn Amazon Connect data into decisions
+    <h1 style="font-size:2rem; font-weight:800; letter-spacing:-0.03em; margin:0 0 8px 0; color:#f1f5f9;">
+        Connect Analytics Platform
+    </h1>
+    <p style="color:#94a3b8; font-size:0.95rem; margin:0;">
+        Three AI agents that turn contact center data into decisions
     </p>
-    <div class="hero-badges">
-        <span class="hero-badge">🟢 Supervisor · Claude Sonnet</span>
-        <span class="hero-badge">🟠 Quality · Claude Sonnet</span>
-        <span class="hero-badge">🔵 WFM · Nova Lite</span>
-        <span class="hero-badge">⚡ Bedrock AgentCore</span>
-        <span class="hero-badge">📊 S3 + Athena</span>
+    <div style="display:flex; justify-content:center; gap:24px; margin-top:20px;">
+        <div style="text-align:center;">
+            <div style="font-size:1.4rem; font-weight:800; color:#34d399;">S</div>
+            <div style="font-size:0.7rem; color:#64748b;">Supervisor</div>
+        </div>
+        <div style="text-align:center;">
+            <div style="font-size:1.4rem; font-weight:800; color:#fb923c;">Q</div>
+            <div style="font-size:0.7rem; color:#64748b;">Quality</div>
+        </div>
+        <div style="text-align:center;">
+            <div style="font-size:1.4rem; font-weight:800; color:#60a5fa;">W</div>
+            <div style="font-size:0.7rem; color:#64748b;">WFM</div>
+        </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 tab_sup, tab_qual, tab_wfm, tab_handoff, tab_dash, tab_roi, tab_kb, tab_before, tab_deploy, tab_arch = st.tabs([
-    "🟢 Supervisor", "🟠 Quality", "🔵 WFM", "🤝 Agent Handoff",
-    "📊 Dashboard", "💰 ROI", "📚 Knowledge Base",
-    "⚡ Before/After", "🚀 Deploy", "📐 Architecture"
+    "Supervisor", "Quality", "WFM", "Agent Handoff",
+    "Dashboard", "ROI", "Knowledge Base",
+    "Before / After", "Deploy", "Architecture"
 ])
 
 
@@ -302,6 +289,12 @@ def simulate_agent_response(agent: str, query: str) -> dict:
                 {"label": "Longest Wait", "value": "12 min", "delta": "+8 min"},
                 {"label": "Abandonment", "value": "14%", "delta": "+9%"},
             ],
+            "actions": [
+                {"label": "Pull 2 agents to Billing", "confirmation": "Agent-005 and Agent-012 reassigned from Technical to Billing. Effective immediately.",
+                 "slack_alert": {"type": "SLA_BREACH", "emoji": "", "message": "2 agents reassigned to Billing to address SLA breach."}},
+                {"label": "Activate flex pool", "confirmation": "2 flex pool agents deployed to Billing for 10 AM - 2 PM block."},
+                {"label": "Notify manager", "confirmation": "SLA breach report sent to Contact Center Manager via email and Slack."},
+            ],
         }
 
     if "abandonment" in q or "spike" in q:
@@ -325,9 +318,13 @@ def simulate_agent_response(agent: str, query: str) -> dict:
                 {"label": "Contacts Lost", "value": "18", "delta": ""},
                 {"label": "Occupancy Peak", "value": "96%", "delta": "+21%"},
             ],
+            "actions": [
+                {"label": "Enable break staggering", "confirmation": "Automated break staggering enabled for all queues during 10 AM - 2 PM. Max 1 agent per queue on break."},
+                {"label": "Create incident report", "confirmation": "Post-incident report created for the 2 PM abandonment spike. Assigned to Supervisor for review within 24 hours."},
+            ],
         }
 
-    if "utilization" in q or "who" in q and "available" in q:
+    if "utilization" in q or ("who" in q and "available" in q):
         return {
             "text": (
                 "**Agent Utilization (Last 8 hours)**\n\n"
@@ -338,8 +335,88 @@ def simulate_agent_response(agent: str, query: str) -> dict:
                 "| Agent-017 | 93% | ACW | 8 min 15 sec | 28 |\n"
                 "| Agent-005 | 72% | AVAILABLE | 5 min 30 sec | 22 |\n"
                 "| Agent-012 | 45% | AVAILABLE | 4 min 50 sec | 18 |\n\n"
-                "⚠️ Agent-023 and Agent-031 are running critically high. Consider reassignment."
+                "Agent-023 and Agent-031 are running critically high. Consider reassignment."
             ),
+            "actions": [
+                {"label": "Reassign Agent-023 to low-volume queue", "confirmation": "Agent-023 moved from Billing to Returns queue. Occupancy should drop to ~75% within 30 minutes.",
+                 "slack_alert": {"type": "BURNOUT_RISK", "emoji": "", "message": "Agent-023 reassigned from Billing to Returns — occupancy intervention."}},
+                {"label": "Reassign Agent-031 to low-volume queue", "confirmation": "Agent-031 moved from Support to Returns queue. Shift reduced by 1 hour today."},
+                {"label": "Move Agent-012 to Billing", "confirmation": "Agent-012 (45% occupancy, AVAILABLE) moved to Billing queue to cover the gap from Agent-023 reassignment."},
+            ],
+        }
+
+    if "busiest" in q or "peak" in q:
+        return {
+            "text": (
+                "**Peak Hour Analysis (Today)**\n\n"
+                "| Hour | Volume | Avg Wait | Abandonment |\n"
+                "|------|--------|----------|-------------|\n"
+                "| 10:00 AM | 78 calls | 28 sec | 4% |\n"
+                "| 11:00 AM | 92 calls | 45 sec | 7% |\n"
+                "| 12:00 PM | 88 calls | 52 sec | 9% |\n"
+                "| 1:00 PM | 82 calls | 48 sec | 8% |\n"
+                "| 2:00 PM | 95 calls | 2 min 10 sec | 18% |\n\n"
+                "Peak volume is 10 AM to 2 PM with 3x normal volume. "
+                "The 2 PM spike correlates with simultaneous agent breaks."
+            ),
+            "metrics": [
+                {"label": "Peak Hour", "value": "2:00 PM", "delta": ""},
+                {"label": "Peak Volume", "value": "95", "delta": "+3x"},
+                {"label": "Worst Wait", "value": "2m 10s", "delta": ""},
+                {"label": "Worst Abandon", "value": "18%", "delta": "+13%"},
+            ],
+            "actions": [
+                {"label": "Stagger breaks during peak", "confirmation": "Break staggering policy enabled for 10 AM - 2 PM. Max 1 agent per queue on break. All supervisors notified."},
+                {"label": "Add peak hour staffing", "confirmation": "2 additional agents scheduled for 10 AM - 2 PM shift Monday through Friday. Flex pool activated."},
+                {"label": "Create break schedule", "confirmation": "Automated break schedule generated for 25 agents. Breaks distributed evenly across 10 AM - 2 PM with no overlaps per queue."},
+            ],
+        }
+
+    if "transfer" in q:
+        return {
+            "text": (
+                "**Transfer Rate Analysis (Last 7 Days)**\n\n"
+                "| Queue | Transfer Rate | Top Destination | Avg Transfers/Day |\n"
+                "|-------|--------------|-----------------|-------------------|\n"
+                "| Support | 12% | Billing | 18 |\n"
+                "| Sales | 8% | Support | 11 |\n"
+                "| Billing | 5% | Returns | 7 |\n"
+                "| Returns | 3% | Support | 4 |\n"
+                "| VIP | 2% | Support | 2 |\n\n"
+                "Support queue has the highest transfer rate at 12%, primarily routing to Billing. "
+                "This suggests agents may need better billing training or the IVR routing needs adjustment."
+            ),
+            "actions": [
+                {"label": "Schedule billing training", "confirmation": "Training session scheduled for Support team — next Tuesday 2 PM. Calendar invites sent to 12 agents."},
+                {"label": "Review IVR routing rules", "confirmation": "IVR routing audit ticket created — assigned to Telecom team. Target: reduce Support→Billing transfers by 50%."},
+                {"label": "Send report to manager", "confirmation": "Transfer rate report emailed to Contact Center Manager with recommendations.",
+                 "slack_alert": {"type": "SLA_BREACH", "emoji": "", "message": "Transfer rate report shared — Support queue at 12%, IVR review recommended."}},
+            ],
+        }
+
+    if "sla" in q and ("breach" in q or "right now" in q):
+        return {
+            "text": (
+                "**Current SLA Status**\n\n"
+                "| Queue | SLA | Threshold | Status |\n"
+                "|-------|-----|-----------|--------|\n"
+                "| Billing | 68.5% | 80% | BREACH |\n"
+                "| Support | 74.0% | 70% | OK |\n"
+                "| Sales | 82.0% | 80% | OK |\n"
+                "| Returns | 78.0% | 75% | OK |\n"
+                "| VIP | 88.0% | 90% | BREACH |\n\n"
+                "Two queues are currently in breach: Billing (11.5% below threshold) and VIP (2% below). "
+                "Billing is the priority — recommend immediate agent reallocation."
+            ),
+            "alert": {
+                "type": "SLA_BREACH",
+                "emoji": "",
+                "message": "Billing queue at 68.5% SLA (threshold 80%). VIP at 88% (threshold 90%).",
+            },
+            "actions": [
+                {"label": "Reallocate agents to Billing", "confirmation": "2 agents moved from Returns to Billing queue. SLA recovery expected within 10 minutes."},
+                {"label": "Assign standby to VIP", "confirmation": "1 flex pool agent placed on VIP standby. Will activate if SLA drops below 85%."},
+            ],
         }
 
     # ── Quality queries ──
@@ -356,6 +433,20 @@ def simulate_agent_response(agent: str, query: str) -> dict:
                 "- **Recommendation:** Hold management training + empathy refresher\n\n"
                 "All other agents are below the 15% threshold."
             ),
+            "transcript_audio": [
+                {"label": "Agent-017 — poor de-escalation", "file": "assets/transcripts/negative_interruption.mp3",
+                 "text": "Ma'am, if you could just. Let me. I understand but. Ma'am I need you to..."},
+                {"label": "Agent-009 — dismissive tone", "file": "assets/transcripts/agent_coaching_needed.mp3",
+                 "text": "Yeah so basically your payment didn't go through. I don't really know why..."},
+            ],
+            "actions": [
+                {"label": "Schedule coaching for Agent-017", "confirmation": "Coaching session booked. Calendar invite sent.",
+                 "calendar": {"title": "Coaching Session — Agent-017 De-escalation", "description": "De-escalation coaching for Agent-017.\nFocus: Active listening, empathy statements, avoiding interruptions.\nPrepare: Review 4 negative call recordings from this week.", "start_hours": 48, "duration_minutes": 30},
+                 "email": {"to": "teamlead@company.com", "subject": "Coaching Scheduled — Agent-017", "body": "Hi,\n\nA coaching session has been scheduled for Agent-017:\n\n- Topic: De-escalation + Active Listening\n- When: In 48 hours (see calendar invite)\n- Duration: 30 minutes\n- Reason: 30% negative sentiment rate, 4 negative calls this week\n\nPlease review the call recordings before the session.\n\nThank you"},
+                 "slack_alert": {"type": "COMPLIANCE_VIOLATION", "emoji": "", "message": "Coaching scheduled for Agent-017 — de-escalation + active listening module."}},
+                {"label": "Schedule coaching for Agent-009", "confirmation": "Hold management training scheduled for Agent-009 — Friday 2 PM."},
+                {"label": "Generate coaching report", "confirmation": "Weekly coaching report generated and emailed to QA Manager."},
+            ],
         }
 
     if "worst call" in q or "sentiment" in q:
@@ -372,6 +463,16 @@ def simulate_agent_response(agent: str, query: str) -> dict:
                 "- Call escalated to supervisor at 8:42 mark"
             ),
             "chart": "sentiment",
+            "transcript_audio": [
+                {"label": "Customer (negative)", "file": "assets/transcripts/negative_billing.mp3",
+                 "text": "I've been on hold for 20 minutes and nobody can tell me why I was charged twice..."},
+                {"label": "Agent interrupting", "file": "assets/transcripts/negative_interruption.mp3",
+                 "text": "Ma'am, if you could just. Let me. I understand but..."},
+            ],
+            "actions": [
+                {"label": "Flag for coaching review", "confirmation": "Call flagged for QA review. Added to Agent-017's coaching queue with priority."},
+                {"label": "Share with team lead", "confirmation": "Call recording and analysis shared with Agent-017's team lead for coaching session."},
+            ],
         }
 
     if "compliance" in q or "violation" in q:
@@ -384,14 +485,71 @@ def simulate_agent_response(agent: str, query: str) -> dict:
                 "| MISSING_DISCLOSURE | 7 | MEDIUM |\n"
                 "| PCI_VIOLATION | 3 | HIGH |\n"
                 "| SCRIPT_DEVIATION | 2 | LOW |\n\n"
-                "🛑 **3 PCI violations flagged for immediate review** — "
+                "3 PCI violations flagged for immediate review — "
                 "agents read full card numbers aloud on recorded lines."
             ),
             "alert": {
                 "type": "COMPLIANCE_VIOLATION",
-                "emoji": "🛑",
+                "emoji": "",
                 "message": "3 PCI violations detected this week. Agents reading card numbers on recorded lines.",
             },
+            "actions": [
+                {"label": "Assign PCI retraining", "confirmation": "Mandatory PCI-DSS retraining assigned to 3 agents. Due within 48 hours. Manager notified.",
+                 "slack_alert": {"type": "COMPLIANCE_VIOLATION", "emoji": "", "message": "PCI retraining assigned to 3 agents — mandatory within 48 hours."}},
+                {"label": "Escalate to compliance team", "confirmation": "Compliance incident report filed. Compliance Officer notified for review within 24 hours."},
+                {"label": "Enable secure payment IVR", "confirmation": "Secure payment IVR transfer enabled for all agents. Card numbers no longer taken verbally."},
+            ],
+        }
+
+    if "improvement" in q or "effectiveness" in q:
+        return {
+            "text": (
+                "**Coaching Effectiveness — Agent-017**\n\n"
+                "| Period | Negative Rate | Escalations | Avg Handle Time |\n"
+                "|--------|-------------|-------------|----------------|\n"
+                "| Before coaching (Mar 25-31) | 30% | 6 | 8 min 15 sec |\n"
+                "| Week 1 post-coaching (Apr 1-7) | 22% | 3 | 7 min 40 sec |\n"
+                "| Week 2 post-coaching (Apr 8-14) | 18% | 2 | 7 min 10 sec |\n\n"
+                "Agent-017 shows a 12 percentage point improvement in negative sentiment rate "
+                "after de-escalation coaching. Escalations dropped by 67%. "
+                "Recommend continuing monitored calls for one more week before clearing."
+            ),
+            "actions": [
+                {"label": "Extend monitoring 1 week", "confirmation": "Agent-017 monitoring extended through Apr 21. Supervisor notified."},
+                {"label": "Clear from coaching", "confirmation": "Agent-017 cleared from coaching program. Performance review scheduled for Apr 28."},
+            ],
+        }
+
+    if "top perform" in q or "best agent" in q:
+        return {
+            "text": (
+                "**Top Performing Agents (Last 7 Days)**\n\n"
+                "| Rank | Agent | Positive Rate | Contacts | Avg Handle Time | Resolution Rate |\n"
+                "|------|-------|--------------|----------|----------------|----------------|\n"
+                "| 1 | Agent-008 | 82% | 142 | 5 min 20 sec | 94% |\n"
+                "| 2 | Agent-014 | 78% | 138 | 5 min 45 sec | 91% |\n"
+                "| 3 | Agent-003 | 76% | 135 | 6 min 10 sec | 89% |\n"
+                "| 4 | Agent-019 | 74% | 128 | 5 min 55 sec | 90% |\n"
+                "| 5 | Agent-011 | 72% | 131 | 6 min 30 sec | 87% |\n\n"
+                "Agent-008 leads with 82% positive sentiment and 94% first-contact resolution. "
+                "Consider pairing Agent-017 with Agent-008 for peer shadowing."
+            ),
+            "transcript_audio": [
+                {"label": "Agent-008 — empathy and ownership", "file": "assets/transcripts/positive_agent008_empathy.mp3",
+                 "text": "I completely understand how frustrating that must be. Let me take care of it right now..."},
+                {"label": "Agent-014 — clean resolution + credit", "file": "assets/transcripts/positive_agent014_resolution.mp3",
+                 "text": "Great news. I've processed your refund and added a $15 credit as an apology..."},
+                {"label": "Agent-003 — proactive upsell", "file": "assets/transcripts/positive_agent003_proactive.mp3",
+                 "text": "I noticed your subscription is renewing. You could save $20/month on the annual plan..."},
+                {"label": "Agent-019 — de-escalation mastery", "file": "assets/transcripts/positive_agent019_deescalation.mp3",
+                 "text": "You're absolutely right to be upset. I'm going to escalate this and personally follow up..."},
+                {"label": "Agent-011 — professional closing", "file": "assets/transcripts/positive_agent011_closing.mp3",
+                 "text": "Just to recap: new billing cycle on the 15th, credit applied, confirmation email within the hour..."},
+            ],
+            "actions": [
+                {"label": "Pair Agent-017 with Agent-008", "confirmation": "Peer shadowing scheduled — Agent-017 will shadow Agent-008 for 3 shifts starting Monday."},
+                {"label": "Send recognition to top 5", "confirmation": "Recognition messages sent to top 5 agents. Manager notified for quarterly awards consideration."},
+            ],
         }
 
     # ── WFM queries ──
@@ -410,27 +568,32 @@ def simulate_agent_response(agent: str, query: str) -> dict:
                 "Confidence interval: 310–370 contacts (±9%)."
             ),
             "chart": "forecast",
+            "actions": [
+                {"label": "Activate 4 flex pool agents", "confirmation": "4 flex pool agents scheduled for Monday 10 AM - 2 PM. Calendar invites sent."},
+                {"label": "Request overtime approval", "confirmation": "Overtime request submitted for 4 agents x 4 hours on Monday. Pending manager approval."},
+                {"label": "Share forecast with team", "confirmation": "Monday staffing forecast shared to #connect-wfm Slack channel."},
+            ],
         }
 
     if "burnout" in q:
         return {
             "text": (
                 "**Burnout Risk Assessment**\n\n"
-                "🔥 **2 agents at critical burnout risk:**\n\n"
+                "2 agents at critical burnout risk:\n\n"
                 "**Agent-023** — Burnout score: **0.91**\n"
                 "- Occupancy: 98% for 8 consecutive days\n"
-                "- Handle time trend: ↑ increasing (+12% week over week)\n"
+                "- Handle time trend: increasing (+12% week over week)\n"
                 "- ACW duration: 5 min 50 sec (avg 1 min 30 sec)\n"
-                "- **Action:** Immediate schedule relief — reassign to low-volume queue within 24 hours\n\n"
+                "- Action: Immediate schedule relief — reassign to low-volume queue within 24 hours\n\n"
                 "**Agent-031** — Burnout score: **0.88**\n"
                 "- Occupancy: 96% for 8 consecutive days\n"
-                "- Handle time trend: ↑ increasing (+8% week over week)\n"
-                "- **Action:** Schedule relief shift within 48 hours\n\n"
+                "- Handle time trend: increasing (+8% week over week)\n"
+                "- Action: Schedule relief shift within 48 hours\n\n"
                 "All other agents below 0.70 threshold."
             ),
             "alert": {
                 "type": "BURNOUT_RISK",
-                "emoji": "🔥",
+                "emoji": "",
                 "message": "Agent-023 (score 0.91) and Agent-031 (score 0.88) at critical burnout risk.",
             },
             "metrics": [
@@ -438,6 +601,110 @@ def simulate_agent_response(agent: str, query: str) -> dict:
                 {"label": "Agent-031 Score", "value": "0.88", "delta": "CRITICAL"},
                 {"label": "Days High Occ.", "value": "8", "delta": ""},
                 {"label": "At-Risk Agents", "value": "2", "delta": ""},
+            ],
+            "actions": [
+                {"label": "Reassign Agent-023 now", "confirmation": "Agent-023 moved to Returns queue (low volume) for 48 hours. Schedule updated.",
+                 "slack_alert": {"type": "BURNOUT_RISK", "emoji": "", "message": "Agent-023 reassigned to Returns queue — burnout intervention."},
+                 "email": {"to": "scheduling@company.com", "subject": "Urgent: Agent-023 Queue Reassignment", "body": "Hi Scheduling,\n\nPlease process the following urgent reassignment:\n\n- Agent: Agent-023\n- From: Billing queue\n- To: Returns queue (low volume)\n- Duration: 48 hours\n- Reason: Burnout score 0.91 — 98% occupancy for 8 consecutive days\n\nThis is a burnout intervention. Please confirm.\n\nThank you"}},
+                {"label": "Reduce Agent-031 shift", "confirmation": "Agent-031 shift reduced by 2 hours for next 3 days. Manager notified.",
+                 "calendar": {"title": "Agent-031 — Reduced Shift (Burnout Intervention)", "description": "Agent-031 shift reduced by 2 hours for next 3 days.\nBurnout score: 0.88\nOccupancy: 96% for 8 days", "start_hours": 24, "duration_minutes": 360}},
+                {"label": "Deploy flex pool", "confirmation": "2 flex pool agents activated for Billing queue 10 AM - 2 PM to cover the gap."},
+            ],
+        }
+
+    if "flex pool" in q or "flex" in q:
+        return {
+            "text": (
+                "**Flex Pool Allocation — Today**\n\n"
+                "| Pool Status | Count |\n"
+                "|------------|-------|\n"
+                "| Total flex agents | 8 |\n"
+                "| Currently deployed | 3 |\n"
+                "| Available | 5 |\n\n"
+                "**Recommended deployment:**\n\n"
+                "| Queue | Agents Needed | Reason |\n"
+                "|-------|--------------|--------|\n"
+                "| Billing | 2 | SLA breach — 68.5% vs 80% threshold |\n"
+                "| VIP | 1 | Approaching breach — 88% vs 90% threshold |\n\n"
+                "Deploy 2 agents to Billing immediately (10 AM - 2 PM block). "
+                "Hold 1 for VIP standby. Per the Flex Pool Allocation Guide, "
+                "minimum 2-hour deployment blocks to avoid constant reassignment."
+            ),
+            "actions": [
+                {"label": "Deploy 2 to Billing now", "confirmation": "2 flex pool agents deployed to Billing queue. 10 AM - 2 PM block confirmed.",
+                 "slack_alert": {"type": "SLA_BREACH", "emoji": "", "message": "Flex pool deployed: 2 agents to Billing queue."}},
+                {"label": "Place 1 on VIP standby", "confirmation": "1 flex pool agent on VIP standby. Auto-activate if SLA drops below 85%."},
+            ],
+        }
+
+    if "overtime" in q:
+        return {
+            "text": (
+                "**Overtime Analysis — This Week**\n\n"
+                "| Day | Forecast Gap | OT Hours Needed | Est. Cost |\n"
+                "|-----|-------------|----------------|----------|\n"
+                "| Monday | -4 agents (10-2 PM) | 16 hrs | $720 |\n"
+                "| Tuesday | -2 agents (11-1 PM) | 4 hrs | $180 |\n"
+                "| Wednesday | Staffed | 0 hrs | $0 |\n"
+                "| Thursday | -1 agent (12-2 PM) | 2 hrs | $90 |\n"
+                "| Friday | -3 agents (10-2 PM) | 12 hrs | $540 |\n\n"
+                "**Total OT needed: 34 hours ($1,530)**\n\n"
+                "Alternative: Activate 2 flex pool agents for Mon/Fri peak blocks — "
+                "saves $960 vs overtime. Per Overtime Authorization Policy, "
+                "supervisor can approve up to 2 hours directly."
+            ),
+            "actions": [
+                {"label": "Use flex pool instead", "confirmation": "Flex pool activated for Monday and Friday peak blocks. Estimated savings: $960 vs overtime."},
+                {"label": "Approve overtime", "confirmation": "34 hours overtime approved. Payroll notified.",
+                 "email": {"to": "payroll@company.com", "subject": "Overtime Approval — Week of Apr 14",
+                           "body": "Hi Payroll,\n\nPlease process the following overtime approval:\n\n- Total hours: 34\n- Cost: $1,530\n- Period: Week of April 14, 2026\n- Approved by: Contact Center Supervisor\n\nBreakdown:\n- Monday: 16 hrs\n- Tuesday: 4 hrs\n- Thursday: 2 hrs\n- Friday: 12 hrs\n\nPlease confirm receipt.\n\nThank you"}},
+                {"label": "Split approach", "confirmation": "Flex pool for Monday (saves $720), overtime for Friday only ($540). Best cost balance."},
+            ],
+        }
+
+    if "attrition" in q or "risk of leaving" in q:
+        return {
+            "text": (
+                "**Attrition Risk Assessment**\n\n"
+                "Combined burnout + sentiment analysis identifies agents most likely to leave:\n\n"
+                "| Agent | Burnout Score | Neg. Sentiment | Tenure | Risk Level |\n"
+                "|-------|-------------|---------------|--------|------------|\n"
+                "| Agent-023 | 0.91 | 18% | 14 months | CRITICAL |\n"
+                "| Agent-031 | 0.88 | 15% | 8 months | HIGH |\n"
+                "| Agent-017 | 0.72 | 30% | 22 months | HIGH |\n"
+                "| Agent-009 | 0.65 | 20% | 6 months | MEDIUM |\n\n"
+                "Agent-023 is the highest attrition risk — sustained high occupancy combined with "
+                "rising negative sentiment. Agent-017 has lower burnout but the highest negative "
+                "sentiment rate, suggesting job dissatisfaction rather than workload issues."
+            ),
+            "actions": [
+                {"label": "Schedule 1:1 with Agent-023", "confirmation": "1:1 meeting scheduled with Agent-023 and supervisor for tomorrow 9 AM. Retention discussion."},
+                {"label": "Adjust Agent-031 schedule", "confirmation": "Agent-031 shift reduced by 2 hours for next 2 weeks. Occupancy target set to 80%."},
+                {"label": "Refer Agent-017 to EAP", "confirmation": "Employee Assistance Program referral initiated for Agent-017. Confidential support available."},
+            ],
+        }
+
+    if "full week" in q or "weekly forecast" in q or "7 day" in q:
+        return {
+            "text": (
+                "**7-Day Staffing Forecast**\n\n"
+                "| Day | Predicted Volume | Staff Needed | Current Staff | Gap |\n"
+                "|-----|-----------------|-------------|--------------|-----|\n"
+                "| Monday | 680 | 22 | 18 | -4 |\n"
+                "| Tuesday | 520 | 18 | 18 | 0 |\n"
+                "| Wednesday | 490 | 17 | 18 | +1 |\n"
+                "| Thursday | 510 | 18 | 18 | 0 |\n"
+                "| Friday | 620 | 21 | 18 | -3 |\n"
+                "| Saturday | 280 | 10 | 8 | -2 |\n"
+                "| Sunday | 180 | 7 | 6 | -1 |\n\n"
+                "Monday and Friday are the critical days — recommend flex pool activation "
+                "for both. Saturday gap can be covered with 2 hours overtime per agent."
+            ),
+            "chart": "forecast",
+            "actions": [
+                {"label": "Activate flex pool Mon+Fri", "confirmation": "Flex pool scheduled for Monday and Friday 10 AM - 2 PM. 4 agents Monday, 3 agents Friday."},
+                {"label": "Approve Saturday overtime", "confirmation": "2 hours overtime approved for 2 agents on Saturday. Cost: $180."},
+                {"label": "Share weekly plan", "confirmation": "Weekly staffing plan shared to #connect-wfm and emailed to all team leads."},
             ],
         }
 
@@ -534,6 +801,35 @@ def try_voice_synthesis(text: str) -> bytes | None:
 
 
 # ---------------------------------------------------------------------------
+# Helper functions for email drafts and calendar invites
+# ---------------------------------------------------------------------------
+
+def generate_ics_data(title, description, start_hours_from_now=24, duration_minutes=30):
+    """Return a valid .ics calendar file content string."""
+    now = datetime.now(timezone.utc)
+    start = now + timedelta(hours=start_hours_from_now)
+    end = start + timedelta(minutes=duration_minutes)
+    fmt = "%Y%m%dT%H%M%SZ"
+    return (
+        "BEGIN:VCALENDAR\r\n"
+        "VERSION:2.0\r\n"
+        "PRODID:-//Connect Analytics//EN\r\n"
+        "BEGIN:VEVENT\r\n"
+        f"DTSTART:{start.strftime(fmt)}\r\n"
+        f"DTEND:{end.strftime(fmt)}\r\n"
+        f"SUMMARY:{title}\r\n"
+        f"DESCRIPTION:{description}\r\n"
+        "END:VEVENT\r\n"
+        "END:VCALENDAR\r\n"
+    )
+
+
+def generate_mailto_url(to, subject, body):
+    """Return a properly URL-encoded mailto: link string."""
+    return f"mailto:{to}?subject={url_quote(subject)}&body={url_quote(body)}"
+
+
+# ---------------------------------------------------------------------------
 # Agent chat function
 # ---------------------------------------------------------------------------
 
@@ -543,12 +839,84 @@ def agent_chat(agent_name: str, agent_color: str, agent_emoji: str):
     if key not in st.session_state:
         st.session_state[key] = []
 
+    # Prompt library — ServiceNow-style clickable cards
+    PROMPT_LIBRARY = {
+        "Supervisor": [
+            {"icon": "🏥", "title": "Queue Health", "prompt": "Show me queue health right now", "desc": "SLA status, wait times, agent availability"},
+            {"icon": "📉", "title": "Abandonment Analysis", "prompt": "Why did abandonment spike at 2pm?", "desc": "Root cause analysis with agent correlation"},
+            {"icon": "👥", "title": "Agent Utilization", "prompt": "Show me agent utilization for today", "desc": "Per-agent occupancy, status, handle times"},
+            {"icon": "🚨", "title": "SLA Breach Alert", "prompt": "Are any queues breaching SLA right now?", "desc": "Real-time threshold monitoring"},
+            {"icon": "📊", "title": "Peak Hour Analysis", "prompt": "What are the busiest hours today?", "desc": "Volume patterns and staffing gaps"},
+            {"icon": "🔄", "title": "Transfer Analysis", "prompt": "Which queues have the highest transfer rates?", "desc": "Transfer patterns and routing issues"},
+        ],
+        "Quality": [
+            {"icon": "😊", "title": "Sentiment Trends", "prompt": "Show me sentiment trends this week", "desc": "Positive/negative/neutral breakdown with chart"},
+            {"icon": "🎓", "title": "Coaching Needed", "prompt": "Which agents need coaching this week?", "desc": "Agents above negative sentiment threshold"},
+            {"icon": "📞", "title": "Worst Call", "prompt": "Show me the worst call this week", "desc": "Transcript with per-turn sentiment analysis"},
+            {"icon": "🛑", "title": "Compliance Violations", "prompt": "Any compliance violations this week?", "desc": "PCI, disclosure, and script violations"},
+            {"icon": "📈", "title": "Improvement Tracking", "prompt": "Show coaching effectiveness for Agent-017", "desc": "Before/after sentiment comparison"},
+            {"icon": "⭐", "title": "Top Performers", "prompt": "Who are the top performing agents?", "desc": "Highest positive sentiment and resolution rates"},
+        ],
+        "WFM": [
+            {"icon": "📅", "title": "Staffing Forecast", "prompt": "Forecast staffing for next Monday", "desc": "Predicted volume with confidence intervals"},
+            {"icon": "🔥", "title": "Burnout Signals", "prompt": "Any agents showing burnout signals?", "desc": "Occupancy, handle time trends, risk scores"},
+            {"icon": "🏊", "title": "Flex Pool", "prompt": "How should I allocate the flex pool today?", "desc": "Demand-based flex pool recommendations"},
+            {"icon": "⏰", "title": "Overtime Needs", "prompt": "Do we need overtime this week?", "desc": "Gap analysis between forecast and staffing"},
+            {"icon": "📉", "title": "Attrition Risk", "prompt": "Which agents are at risk of leaving?", "desc": "Burnout + sentiment combined risk score"},
+            {"icon": "🔮", "title": "Weekly Forecast", "prompt": "Give me the full week forecast", "desc": "7-day volume prediction with charts"},
+        ],
+    }
+
+    prompts = PROMPT_LIBRARY.get(agent_name, [])
+
+    # Show prompt cards always (collapsed into expander after first use)
+    if prompts:
+        show_expanded = not bool(st.session_state[key])
+        with st.expander("Quick prompts", expanded=show_expanded):
+            rows = [prompts[i:i+3] for i in range(0, len(prompts), 3)]
+            for row in rows:
+                cols = st.columns(len(row))
+                for j, p in enumerate(row):
+                    with cols[j]:
+                        card_clicked = st.button(
+                            f"{p['icon']}  {p['title']}\n{p['desc']}",
+                            key=f"prompt_{agent_name}_{prompts.index(p)}",
+                            use_container_width=True,
+                        )
+                        if card_clicked:
+                            st.session_state[key] = []  # Clear previous chat
+                            st.session_state[key].append({"role": "user", "content": p["prompt"]})
+                            with st.spinner(f"{agent_name} Agent thinking..."):
+                                time.sleep(1.2)
+                                response = simulate_agent_response(agent_name, p["prompt"])
+                                response = enrich_with_kb(response, p["prompt"])
+                            msg_data = {"role": "agent", "content": response["text"]}
+                            if "kb_docs" in response:
+                                msg_data["kb_docs"] = response["kb_docs"]
+                            if "chart" in response:
+                                chart_buf = generate_demo_chart(response["chart"])
+                                if chart_buf:
+                                    msg_data["chart"] = chart_buf
+                            if "metrics" in response:
+                                msg_data["metrics"] = response["metrics"]
+                            if "actions" in response:
+                                msg_data["actions"] = response["actions"]
+                            if "transcript_audio" in response:
+                                msg_data["transcript_audio"] = response["transcript_audio"]
+                            if "alert" in response:
+                                alert = response["alert"]
+                                alert["time"] = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+                                st.session_state.alerts.append(alert)
+                                post_to_slack(alert)
+                            st.session_state[key].append(msg_data)
+                            st.rerun()
+
     # Display chat history
     for msg in st.session_state[key]:
         if msg["role"] == "user":
-            st.markdown(f'<div class="user-msg">🧑 {msg["content"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="user-msg">{msg["content"]}</div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="agent-msg">{agent_emoji} {msg["content"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="agent-msg">{msg["content"]}</div>', unsafe_allow_html=True)
             if "chart" in msg:
                 st.image(msg["chart"], width="stretch")
             if "kb_docs" in msg:
@@ -567,6 +935,75 @@ def agent_chat(agent_name: str, agent_color: str, agent_emoji: str):
                     cols[i].metric(m["label"], m["value"], m.get("delta", ""))
             if "audio" in msg:
                 st.audio(msg["audio"], format="audio/mpeg")
+            if "transcript_audio" in msg:
+                st.markdown("---")
+                st.markdown("**Call transcript recordings:**")
+                for ta in msg["transcript_audio"]:
+                    with st.expander(f"Listen: {ta['label']}"):
+                        st.caption(f'"{ta["text"]}"')
+                        audio_path = Path(__file__).parent / ta["file"]
+                        if audio_path.exists():
+                            st.audio(str(audio_path), format="audio/mpeg")
+                        else:
+                            st.caption("Audio file not found — run: python scripts/generate_transcript_audio.py")
+            if "actions" in msg:
+                st.markdown("---")
+                st.markdown("**Recommended actions:**")
+                for ai, action in enumerate(msg["actions"]):
+                    action_key = f"action_{agent_name}_{hash(action['label'])}_{ai}"
+                    ac1, ac2 = st.columns([3, 1]) if ("email" in action or "calendar" in action) else (st.columns([1])[0], None)
+
+                    with ac1 if ac2 else st.container():
+                        if "email" not in action and "calendar" not in action:
+                            if st.button(action["label"], key=action_key, use_container_width=True):
+                                with st.spinner(f"Executing: {action['label']}..."):
+                                    time.sleep(1.5)
+                                st.success(action["confirmation"])
+                                if "slack_alert" in action:
+                                    alert = action["slack_alert"]
+                                    alert["time"] = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+                                    st.session_state.alerts.append(alert)
+                                    post_to_slack(alert)
+                        else:
+                            if st.button(action["label"], key=action_key, use_container_width=True):
+                                with st.spinner(f"Executing: {action['label']}..."):
+                                    time.sleep(1.5)
+                                st.success(action["confirmation"])
+                                if "slack_alert" in action:
+                                    alert = action["slack_alert"]
+                                    alert["time"] = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+                                    st.session_state.alerts.append(alert)
+                                    post_to_slack(alert)
+
+                    if ac2:
+                        with ac2:
+                            if "calendar" in action:
+                                cal = action["calendar"]
+                                ics_data = generate_ics_data(cal["title"], cal["description"], cal.get("start_hours", 24), cal.get("duration_minutes", 30))
+                                st.download_button(
+                                    label="Add to calendar",
+                                    data=ics_data,
+                                    file_name=f"{cal['title'].replace(' ', '_')}.ics",
+                                    mime="text/calendar",
+                                    key=f"cal_{action_key}",
+                                    use_container_width=True,
+                                )
+                            if "email" in action:
+                                em = action["email"]
+                                eml_content = (
+                                    f"To: {em['to']}\r\n"
+                                    f"Subject: {em['subject']}\r\n"
+                                    f"Content-Type: text/plain; charset=utf-8\r\n\r\n"
+                                    f"{em['body']}"
+                                )
+                                st.download_button(
+                                    label="Draft email",
+                                    data=eml_content,
+                                    file_name=f"{em['subject'].replace(' ', '_')[:40]}.eml",
+                                    mime="message/rfc822",
+                                    key=f"eml_{action_key}",
+                                    use_container_width=True,
+                                )
 
     # Input
     query = st.chat_input(f"Ask the {agent_name} Agent...", key=f"input_{agent_name}")
@@ -594,6 +1031,14 @@ def agent_chat(agent_name: str, agent_color: str, agent_emoji: str):
         # Add metrics if present
         if "metrics" in response:
             msg_data["metrics"] = response["metrics"]
+
+        # Add actions if present
+        if "actions" in response:
+            msg_data["actions"] = response["actions"]
+
+        # Add transcript audio if present
+        if "transcript_audio" in response:
+            msg_data["transcript_audio"] = response["transcript_audio"]
 
         st.session_state[key].append(msg_data)
 
@@ -729,10 +1174,84 @@ with tab_dash:
     # Infrastructure health
     st.markdown("### Infrastructure Health")
     i1, i2, i3, i4 = st.columns(4)
-    i1.metric("AgentCore Gateway", "Healthy ✅")
-    i2.metric("Athena Workgroup", "Healthy ✅")
-    i3.metric("EventBridge", "Healthy ✅")
+    i1.metric("AgentCore Gateway", "Healthy")
+    i2.metric("Athena Workgroup", "Healthy")
+    i3.metric("EventBridge", "Healthy")
     i4.metric("S3 Data Lake", "10.2 GB")
+
+    st.markdown("---")
+
+    # Staffing visual — queue cards with staff counts and reassignment
+    st.markdown("### Queue Staffing Overview")
+
+    if "queue_staff" not in st.session_state:
+        st.session_state.queue_staff = {
+            "Billing": {"staff": 4, "needed": 7, "sla": 68.5, "status": "BREACH"},
+            "Sales": {"staff": 5, "needed": 5, "sla": 82.0, "status": "OK"},
+            "Support": {"staff": 6, "needed": 5, "sla": 74.0, "status": "OK"},
+            "Returns": {"staff": 4, "needed": 3, "sla": 85.0, "status": "OK"},
+            "VIP": {"staff": 3, "needed": 4, "sla": 88.0, "status": "AT RISK"},
+        }
+
+    qs = st.session_state.queue_staff
+    q_cols = st.columns(len(qs))
+
+    for idx, (queue, data) in enumerate(qs.items()):
+        with q_cols[idx]:
+            gap = data["staff"] - data["needed"]
+            if data["status"] == "BREACH":
+                border_color = "#f87171"
+                status_color = "#f87171"
+            elif data["status"] == "AT RISK":
+                border_color = "#fb923c"
+                status_color = "#fb923c"
+            else:
+                border_color = "#34d399"
+                status_color = "#34d399"
+
+            st.markdown(f"""
+            <div style="background:#1e293b; border:1px solid {border_color}; border-radius:12px;
+                        padding:16px; text-align:center; border-top:3px solid {border_color};">
+                <div style="font-weight:700; font-size:0.95rem; margin-bottom:8px;">{queue}</div>
+                <div style="font-size:2rem; font-weight:800; color:#f1f5f9;">{data['staff']}</div>
+                <div style="font-size:0.7rem; color:#64748b; margin-bottom:8px;">of {data['needed']} needed</div>
+                <div style="font-size:0.75rem; color:{status_color}; font-weight:600;">{data['status']}</div>
+                <div style="font-size:0.7rem; color:#64748b; margin-top:4px;">SLA: {data['sla']}%</div>
+                <div style="background:#0f172a; border-radius:6px; height:6px; margin-top:8px; overflow:hidden;">
+                    <div style="background:{border_color}; height:100%; width:{min(100, data['sla'])}%; border-radius:6px;"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("")
+    st.markdown("### Reassign Agents")
+
+    rc1, rc2, rc3 = st.columns(3)
+    with rc1:
+        from_queue = st.selectbox("From queue", list(qs.keys()), key="from_q")
+    with rc2:
+        to_queue = st.selectbox("To queue", [q for q in qs.keys() if q != from_queue], key="to_q")
+    with rc3:
+        num_agents = st.number_input("Agents", min_value=1, max_value=5, value=1, key="num_reassign")
+
+    if st.button("Reassign agents", key="reassign_btn", use_container_width=True):
+        if qs[from_queue]["staff"] >= num_agents:
+            qs[from_queue]["staff"] -= num_agents
+            qs[to_queue]["staff"] += num_agents
+            # Recalculate SLA estimates
+            for q in qs:
+                ratio = qs[q]["staff"] / max(qs[q]["needed"], 1)
+                qs[q]["sla"] = min(99.0, round(60 + ratio * 30, 1))
+                if qs[q]["sla"] >= 80:
+                    qs[q]["status"] = "OK"
+                elif qs[q]["sla"] >= 70:
+                    qs[q]["status"] = "AT RISK"
+                else:
+                    qs[q]["status"] = "BREACH"
+            st.success(f"{num_agents} agent(s) moved from {from_queue} to {to_queue}")
+            st.rerun()
+        else:
+            st.error(f"Not enough agents in {from_queue} (only {qs[from_queue]['staff']} available)")
 
 
 with tab_kb:
