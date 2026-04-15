@@ -19,7 +19,7 @@ from constructs import Construct
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-WFM_MODEL_ID = "amazon.nova-lite-v1"
+WFM_MODEL_ID = "amazon.nova-lite-v2:0"
 
 WFM_SYSTEM_PROMPT = (
     "You are the WFM (Workforce Management) Agent for an Amazon Connect "
