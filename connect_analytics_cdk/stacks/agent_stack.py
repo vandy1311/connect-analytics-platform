@@ -91,7 +91,7 @@ class AgentStack(Stack):
             environment={
                 "BUCKET": data_bucket.bucket_name,
                 "WORKGROUP": athena_workgroup.name or "connect-analytics",
-                "AUTH_TOKENS": auth_tokens_json,
+                "AUTH_SECRET_ARN": auth_tokens_json,  # Secrets Manager ARN
             },
             timeout=Duration.seconds(30),
             memory_size=512,
@@ -109,7 +109,17 @@ class AgentStack(Stack):
         # S3 read-only on the data bucket
         data_bucket.grant_read(self.tool_lambda)
 
-        # Athena query execution
+        # Secrets Manager read for auth tokens
+        self.tool_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                sid="SecretsManagerReadAuth",
+                actions=["secretsmanager:GetSecretValue"],
+                resources=[auth_tokens_json],  # Scoped to the specific secret ARN
+            )
+        )
+
+        # Athena query execution — scoped to workgroup
+        workgroup_name = athena_workgroup.name or "connect-analytics"
         self.tool_lambda.add_to_role_policy(
             iam.PolicyStatement(
                 sid="AthenaQueryExecution",
@@ -119,17 +129,13 @@ class AgentStack(Stack):
                     "athena:GetQueryResults",
                     "athena:StopQueryExecution",
                 ],
-                resources=["*"],  # Athena workgroup ARN not easily constructable
-                conditions={
-                    "StringEquals": {
-                        "athena:workGroup": athena_workgroup.name
-                        or "connect-analytics"
-                    }
-                },
+                resources=[
+                    f"arn:aws:athena:{self.region}:{self.account}:workgroup/{workgroup_name}",
+                ],
             )
         )
 
-        # Glue Data Catalog read (required by Athena)
+        # Glue Data Catalog read — scoped to connect_analytics database
         self.tool_lambda.add_to_role_policy(
             iam.PolicyStatement(
                 sid="GlueCatalogRead",
@@ -139,7 +145,11 @@ class AgentStack(Stack):
                     "glue:GetTables",
                     "glue:GetPartitions",
                 ],
-                resources=["*"],
+                resources=[
+                    f"arn:aws:glue:{self.region}:{self.account}:catalog",
+                    f"arn:aws:glue:{self.region}:{self.account}:database/connect_analytics",
+                    f"arn:aws:glue:{self.region}:{self.account}:table/connect_analytics/*",
+                ],
             )
         )
 
@@ -155,12 +165,14 @@ class AgentStack(Stack):
             )
         )
 
-        # EventBridge put events (for alerts)
+        # EventBridge put events — scoped to default event bus
         self.tool_lambda.add_to_role_policy(
             iam.PolicyStatement(
                 sid="EventBridgePutEvents",
                 actions=["events:PutEvents"],
-                resources=["*"],
+                resources=[
+                    f"arn:aws:events:{self.region}:{self.account}:event-bus/default",
+                ],
             )
         )
 
