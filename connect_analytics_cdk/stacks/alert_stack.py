@@ -25,6 +25,7 @@ from aws_cdk import (
     aws_events_targets as targets,
     aws_lambda as lambda_,
     aws_logs as logs,
+    aws_secretsmanager as secretsmanager,
     aws_sns as sns,
     aws_sns_subscriptions as subs,
 )
@@ -86,6 +87,16 @@ class AlertStack(Stack):
         )
 
         # ------------------------------------------------------------------
+        # Slack webhook stored in Secrets Manager
+        # ------------------------------------------------------------------
+        self.slack_secret = secretsmanager.Secret(
+            self,
+            "SlackWebhookSecret",
+            secret_name="connect-analytics/slack-webhook",
+            description="Slack webhook URL for alert delivery",
+        )
+
+        # ------------------------------------------------------------------
         # Slack Formatter Lambda (container image)
         # ------------------------------------------------------------------
         self.slack_lambda = lambda_.DockerImageFunction(
@@ -95,7 +106,7 @@ class AlertStack(Stack):
                 "lambda_tools/alerts/slack_formatter",
             ),
             environment={
-                "SLACK_WEBHOOK_URL": slack_webhook_url,
+                "SLACK_SECRET_ARN": self.slack_secret.secret_arn,
                 "ALERT_CHANNEL_MAP": json.dumps(channel_map),
             },
             timeout=Duration.seconds(30),
@@ -103,6 +114,9 @@ class AlertStack(Stack):
             log_group=self.log_group,
             description="Formats alert payloads into Slack Block Kit and POSTs to webhook",
         )
+
+        # Grant Lambda read access to the Slack webhook secret
+        self.slack_secret.grant_read(self.slack_lambda)
 
         # ------------------------------------------------------------------
         # SNS Topics — one per alert type
