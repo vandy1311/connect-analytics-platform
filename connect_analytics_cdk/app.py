@@ -2,22 +2,16 @@
 """CDK app entry point for the Connect Analytics Platform.
 
 Wires all stacks together with cross-stack references:
-    DataStack → AgentStack → AlertStack → AuthStack
-
-Three CfnParameters:
-    - InstanceId       — Amazon Connect instance ID
-    - DataLakeBucket   — S3 bucket name for the data lake
-    - AlertDestination — Slack webhook URL for alert delivery
-
-CfnOutputs expose agent endpoint URLs and Slack webhook config.
+    AuthStack → DataStack → KnowledgeBaseStack → AgentStack → AlertStack
 """
 
-from aws_cdk import App, CfnParameter, Environment
+from aws_cdk import App, Environment
 
 from connect_analytics_cdk.stacks.data_stack import DataStack
 from connect_analytics_cdk.stacks.agent_stack import AgentStack
 from connect_analytics_cdk.stacks.alert_stack import AlertStack
 from connect_analytics_cdk.stacks.auth_stack import AuthStack
+from connect_analytics_cdk.stacks.knowledge_base_stack import KnowledgeBaseStack
 
 app = App()
 
@@ -30,7 +24,7 @@ env = Environment(
 )
 
 # ---------------------------------------------------------------------------
-# 1. AuthStack — lightweight API-key auth (hackathon scope)
+# 1. AuthStack — tokens in Secrets Manager, role-agent mapping
 # ---------------------------------------------------------------------------
 auth_stack = AuthStack(app, "ConnectAnalytics-Auth", env=env)
 
@@ -40,8 +34,13 @@ auth_stack = AuthStack(app, "ConnectAnalytics-Auth", env=env)
 data_stack = DataStack(app, "ConnectAnalytics-Data", env=env)
 
 # ---------------------------------------------------------------------------
-# 3. AgentStack — tool Lambda, AgentCore Gateway, 3 agents
-#    Depends on DataStack (bucket, workgroup) and AuthStack (tokens)
+# 3. KnowledgeBaseStack — S3 docs + Bedrock Knowledge Base for RAG
+# ---------------------------------------------------------------------------
+kb_stack = KnowledgeBaseStack(app, "ConnectAnalytics-KB", env=env)
+kb_stack.add_dependency(data_stack)
+
+# ---------------------------------------------------------------------------
+# 4. AgentStack — tool Lambda, AgentCore Gateway, 3 agents
 # ---------------------------------------------------------------------------
 agent_stack = AgentStack(
     app,
@@ -53,9 +52,10 @@ agent_stack = AgentStack(
 )
 agent_stack.add_dependency(data_stack)
 agent_stack.add_dependency(auth_stack)
+agent_stack.add_dependency(kb_stack)
 
 # ---------------------------------------------------------------------------
-# 4. AlertStack — EventBridge rules, SNS topics, Slack formatter
+# 5. AlertStack — EventBridge rules, SNS topics, Slack formatter
 # ---------------------------------------------------------------------------
 alert_stack = AlertStack(
     app,
