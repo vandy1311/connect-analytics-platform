@@ -66,7 +66,7 @@ class KnowledgeBaseStack(Stack):
         self.kb_bucket.grant_read(kb_role)
 
         # Bedrock needs to invoke the embedding model
-        kb_role.add_to_role_policy(
+        kb_role.add_to_policy(
             iam.PolicyStatement(
                 actions=["bedrock:InvokeModel"],
                 resources=[
