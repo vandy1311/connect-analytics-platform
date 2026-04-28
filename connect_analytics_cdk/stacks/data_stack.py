@@ -28,17 +28,16 @@ class DataStack(Stack):
         athena_workgroup: The Athena workgroup for running queries.
     """
 
-    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, id: str, *, bucket_name: str | None = None, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
 
         # ------------------------------------------------------------------
-        # S3 Bucket — connect-analytics-demo
-        # Prefix structure: ctr/, agent-events/, contact-lens/, athena-results/
+        # S3 Bucket — use provided name or default
         # ------------------------------------------------------------------
         self.data_bucket = s3.Bucket(
             self,
             "DataBucket",
-            bucket_name="connect-analytics-demo",
+            bucket_name=bucket_name or f"connect-analytics-{self.account}-{self.region}",
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True,
         )
