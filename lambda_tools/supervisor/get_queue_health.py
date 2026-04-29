@@ -5,7 +5,6 @@ and average handle time.  Queries both connect_ctr and connect_agent_events
 via Athena, wrapped in a circuit breaker.
 """
 
-import json
 
 from lambda_tools.shared.athena_client import execute_query
 from lambda_tools.shared.circuit_breaker import CircuitBreaker, CircuitOpenError
