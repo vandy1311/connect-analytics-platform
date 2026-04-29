@@ -11,7 +11,6 @@ For the hackathon demo, this module can operate in two modes:
 Set KNOWLEDGE_BASE_ID env var to enable LIVE mode. Otherwise falls back to LOCAL.
 """
 
-import json
 import logging
 import os
 from pathlib import Path
