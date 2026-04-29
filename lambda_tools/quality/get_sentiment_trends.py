@@ -7,7 +7,6 @@ in a circuit breaker.
 
 import base64
 import io
-import json
 
 from lambda_tools.shared.athena_client import execute_query
 from lambda_tools.shared.circuit_breaker import CircuitBreaker, CircuitOpenError
