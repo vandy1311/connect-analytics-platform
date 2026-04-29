@@ -5,7 +5,6 @@ recommendations with sample excerpts.  Queries connect_contact_lens via
 Athena, wrapped in a circuit breaker.
 """
 
-import json
 import os
 
 from lambda_tools.shared.athena_client import execute_query
