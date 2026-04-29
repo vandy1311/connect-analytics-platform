@@ -11,7 +11,6 @@ directory during deployment via a CDK custom resource.
 from aws_cdk import (
     CfnOutput,
     CfnResource,
-    Duration,
     RemovalPolicy,
     Stack,
     aws_iam as iam,
