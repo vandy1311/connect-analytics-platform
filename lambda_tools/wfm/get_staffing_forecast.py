@@ -7,7 +7,6 @@ bands, encoded as base64 PNG.
 
 import base64
 import io
-import json
 import math
 from collections import defaultdict
 
